@@ -1,4 +1,4 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, untracked } from '@angular/core';
 import { PlaybackStore } from '../historical-playback/playback.store';
 import { SignalDerivedRow } from './signal-derived-row';
 import { InvestigationMetricsService } from '../investigation-metrics/investigation-metrics.service';
@@ -14,7 +14,7 @@ export class SignalStatusBoardStore {
     const rawRows = this.playbackStore.displayedRows();
     
     return rawRows.map(row => {
-      this.metrics.recordDerivation();
+      untracked(() => this.metrics.recordDerivation());
       
       const delta = row.displayedPrice - row.referencePrice;
       const percentChange = row.referencePrice === 0 ? 0 : delta / row.referencePrice;

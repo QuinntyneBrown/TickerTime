@@ -1,15 +1,21 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, untracked } from '@angular/core';
 
 @Injectable({
   providedIn: 'root'
 })
 export class InvestigationMetricsService {
+  private _derivationCount = 0;
   readonly derivationCount = signal(0);
   readonly renderLatencies = signal<number[]>([]);
   readonly scrubLatencies = signal<number[]>([]);
 
   recordDerivation() {
-    this.derivationCount.update(c => c + 1);
+    this._derivationCount++;
+    // Update the signal asynchronously to avoid write-during-computed errors
+    // and ExpressionChangedAfterItHasBeenChecked errors
+    setTimeout(() => {
+        this.derivationCount.set(this._derivationCount);
+    }, 0);
   }
 
   recordRenderLatency(ms: number) {
@@ -21,6 +27,7 @@ export class InvestigationMetricsService {
   }
 
   reset() {
+    this._derivationCount = 0;
     this.derivationCount.set(0);
     this.renderLatencies.set([]);
     this.scrubLatencies.set([]);
@@ -28,7 +35,7 @@ export class InvestigationMetricsService {
 
   getSnapshot() {
     return {
-      derivationCount: this.derivationCount(),
+      derivationCount: this._derivationCount,
       renderLatencies: this.renderLatencies(),
       scrubLatencies: this.scrubLatencies()
     };

@@ -1,4 +1,4 @@
-import { Pipe, PipeTransform, inject } from '@angular/core';
+import { Pipe, PipeTransform, inject, untracked } from '@angular/core';
 import { DisplayedStockRow } from '../historical-playback/displayed-stock-row';
 import { DerivedStockStatus } from './derived-stock-status';
 import { InvestigationMetricsService } from '../investigation-metrics/investigation-metrics.service';
@@ -12,7 +12,7 @@ export class StockStatusPipe implements PipeTransform {
   private metrics = inject(InvestigationMetricsService);
 
   transform(row: DisplayedStockRow): DerivedStockStatus {
-    this.metrics.recordDerivation();
+    untracked(() => this.metrics.recordDerivation());
 
     const delta = row.displayedPrice - row.referencePrice;
     const percentChange = row.referencePrice === 0 ? 0 : delta / row.referencePrice;
