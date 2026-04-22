@@ -1,0 +1,25 @@
+@startuml
+title Stock subscriptions
+autonumber
+
+actor User
+participant "SubscriptionPanelComponent" as Panel
+participant "SubscriptionStore" as Store
+participant "SignalRStocksClient" as Client
+participant "StocksHub" as Hub
+participant "ConnectionSubscriptionStore" as Snapshot
+participant "SignalR Groups" as Groups
+
+User -> Panel: Toggle symbol selection
+Panel -> Store: toggleSymbol(symbol)
+Store -> Client: setSubscriptions(selectedSymbols)
+Client -> Hub: SetSubscriptions(request)
+Hub -> Snapshot: get(connectionId)
+Snapshot --> Hub: current symbols
+Hub -> Groups: remove old groups
+Hub -> Groups: add new groups
+Hub -> Snapshot: set(connectionId, selectedSymbols)
+Hub --> Client: ack
+Client --> Store: completed
+
+@enduml

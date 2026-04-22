@@ -1,0 +1,21 @@
+@startuml
+title Pipe status board
+autonumber
+
+participant "PipeStatusBoardPageComponent" as Page
+participant "PlaybackStore" as Playback
+participant "StockStatusPipe" as Pipe
+participant "InvestigationMetricsService" as Metrics
+
+Page -> Playback: displayedRows()
+Playback --> Page: DisplayedStockRow[]
+
+loop each row
+  Page -> Pipe: transform(row)
+  Pipe -> Metrics: recordPipeDerivation()
+  Pipe --> Page: DerivedStockStatus
+end
+
+Page -> Metrics: scheduleRenderProbe()
+
+@enduml

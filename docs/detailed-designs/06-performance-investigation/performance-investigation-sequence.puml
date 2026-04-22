@@ -1,0 +1,35 @@
+@startuml
+title Performance investigation
+autonumber
+
+participant "Playwright Spec" as Spec
+participant "TickerInvestigationPage" as PageObject
+participant "InvestigationEndpoints" as Api
+participant "Browser CDP Session" as Cdp
+participant "TickerTime App" as App
+participant "window.__tickerMetrics" as Metrics
+
+Spec -> PageObject: applyScenario(settings)
+PageObject -> Api: POST /api/investigation/scenario
+Api --> PageObject: 204 No Content
+
+Spec -> PageObject: gotoPipe() / gotoSignal()
+PageObject -> Cdp: Performance.enable
+PageObject -> App: navigate(route)
+App -> Metrics: reset()
+
+Spec -> PageObject: subscribeFirst(count)
+Spec -> PageObject: run live or scrub actions
+
+loop during scenario
+  App -> Metrics: record derivation and latency samples
+end
+
+Spec -> PageObject: readBenchmarkResult()
+PageObject -> Metrics: flush()
+Metrics --> PageObject: app metrics
+PageObject -> Cdp: Performance.getMetrics
+Cdp --> PageObject: cdp metrics
+PageObject --> Spec: BenchmarkRunResult
+
+@enduml

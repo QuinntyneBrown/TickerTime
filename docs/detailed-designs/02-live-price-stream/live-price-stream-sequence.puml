@@ -1,0 +1,25 @@
+@startuml
+title Live price stream
+autonumber
+
+participant "PeriodicTimer" as Timer
+participant "LivePriceBackgroundService" as Service
+participant "DeterministicPriceEngine" as Engine
+participant "InMemoryTimelineStore" as Timeline
+participant "LiveQuoteBroadcaster" as Broadcaster
+participant "SignalR Group" as Group
+participant "SignalRLiveQuoteClient" as Client
+participant "LiveQuoteFeedStore" as Store
+
+Timer -> Service: tick
+Service -> Engine: nextBatch(symbols)
+Engine --> Service: StockTick[]
+loop each tick
+  Service -> Timeline: append(tick)
+  Service -> Broadcaster: publish(tick)
+  Broadcaster -> Group: liveQuote(message)
+  Group -> Client: liveQuote(message)
+  Client -> Store: upsert(message)
+end
+
+@enduml

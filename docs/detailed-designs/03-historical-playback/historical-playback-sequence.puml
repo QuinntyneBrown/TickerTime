@@ -1,0 +1,28 @@
+@startuml
+title Historical playback
+autonumber
+
+actor User
+participant "PlaybackToolbarComponent" as Toolbar
+participant "PlaybackStore" as Store
+participant "HistoryApiClient" as ApiClient
+participant "HistoryEndpoints" as Endpoint
+participant "HistoryQueryService" as Query
+participant "InMemoryTimelineStore" as Timeline
+
+User -> Toolbar: Turn live mode off
+Toolbar -> Store: setLive(false)
+Store -> ApiClient: loadHistory(selectedSymbols, points)
+ApiClient -> Endpoint: GET /api/history
+Endpoint -> Query: getHistory(symbols, points)
+Query -> Timeline: readWindow(symbols, points)
+Timeline --> Query: HistoricalQuoteDto[]
+Query --> Endpoint: HistoryResponse
+Endpoint --> ApiClient: HistoryResponse
+ApiClient --> Store: historyBySymbol
+
+User -> Toolbar: Move scrub slider
+Toolbar -> Store: setPlaybackIndex(index)
+Store -> Store: recompute DisplayedStockRow[]
+
+@enduml

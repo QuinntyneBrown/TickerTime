@@ -1,0 +1,17 @@
+@startuml
+title Signal status board
+autonumber
+
+participant "SignalStatusBoardPageComponent" as Page
+participant "SignalStatusBoardStore" as Store
+participant "PlaybackStore" as Playback
+participant "InvestigationMetricsService" as Metrics
+
+Page -> Store: derivedRows()
+Store -> Playback: displayedRows()
+Playback --> Store: DisplayedStockRow[]
+Store -> Metrics: recordComputedDerivation()
+Store --> Page: SignalDerivedRow[]
+Page -> Metrics: scheduleRenderProbe()
+
+@enduml
