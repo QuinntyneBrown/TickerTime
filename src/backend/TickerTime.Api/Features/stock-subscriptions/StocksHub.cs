@@ -34,7 +34,7 @@ namespace TickerTime.Api.Features.StockSubscriptions
             _subscriptionStore.Set(connectionId, validSymbols);
         }
 
-        public override Task OnDisconnectedAsync(System.Exception exception)
+        public override Task OnDisconnectedAsync(System.Exception? exception)
         {
             _subscriptionStore.Remove(Context.ConnectionId);
             return base.OnDisconnectedAsync(exception);
