@@ -1,0 +1,11 @@
+@TickerTime.Api_HostAddress = http://localhost:5134
+
+GET {{TickerTime.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
+
+GET {{TickerTime.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

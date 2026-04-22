@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "33BaCyY3r1Q=",
+  "success": true,
+  "projectFilePath": "C:\\projects\\TickerTime\\src\\backend\\TickerTime.Api\\TickerTime.Api.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\quinn\\.nuget\\packages\\microsoft.aspnetcore.openapi\\11.0.0-preview.3.26207.106\\microsoft.aspnetcore.openapi.11.0.0-preview.3.26207.106.nupkg.sha512",
+    "C:\\Users\\quinn\\.nuget\\packages\\microsoft.openapi\\3.3.1\\microsoft.openapi.3.3.1.nupkg.sha512"
+  ],
+  "logs": []
+}
