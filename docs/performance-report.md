@@ -1,4 +1,4 @@
-# TickerTime Performance Investigation Report
+# TickerTime Performance And Memory Investigation Report
 
 ## Executive Summary
 
@@ -7,13 +7,16 @@ This report compares the two investigation routes in the current codebase:
 - `/investigation/pipe`: derive status in a render-time Angular pipe
 - `/investigation/signal`: derive status in a store-side computed signal
 
-The repository now runs on **.NET 8** and **Angular 17**, and the benchmark was rerun after updating the stack and fixing the scenario plumbing so each run actually uses its configured symbol count and history window.
+The repository currently runs on **.NET 8** and **Angular 17**. This benchmark pass extends the earlier latency-focused run with a **browser heap allocation and forced garbage collection probe** captured through Chromium's CDP APIs.
 
-The result is straightforward:
+The updated result is more nuanced than the previous latency-only report:
 
-- both implementations executed the same number of derivations in every scenario
-- the **signal-based approach** produced lower latency under medium and high load
-- the **pipe-based approach** remained competitive in the smallest scenario, where the extra structure of a computed store brings little benefit
+- **Light** load is effectively a wash
+- **Heavy** load favors the signal-based route on both render and scrub latency
+- **Stress** latency is close enough that a single local run should not be treated as final proof either way
+- **Stress** memory behavior favors the signal-based route, with lower peak heap, lower post-GC heap, and more memory reclaimed by forced GC
+
+If the primary concern is simple view logic for a small board, either approach is fine. If the board is expected to stay live under sustained load and memory churn matters, the signal-based route remains the stronger default.
 
 ## 1. Methodology
 
@@ -29,14 +32,15 @@ The result is straightforward:
 
 Each test run used this sequence:
 
-1. Post the scenario settings to `POST /api/investigation/scenario`
+1. Post scenario settings to `POST /api/investigation/scenario`
 2. Load either `/investigation/pipe` or `/investigation/signal`
 3. Subscribe to the scenario-sized watchlist returned by `/api/symbols`
-4. Capture live render metrics for 10 seconds
+4. Capture live route behavior for 10 seconds
 5. Switch to history mode
-6. Drive five deterministic slider `input` events to measure scrub latency
+6. Drive five deterministic slider `input` events
+7. Trigger a forced browser GC and record post-GC heap usage
 
-The backend now pre-seeds the in-memory timeline to the scenario's configured history depth, so the scrub stage uses the intended history window instead of a partially warmed cache.
+The backend pre-seeds the in-memory timeline to the configured history depth, so the history step uses the intended scenario window instead of a partially warmed cache.
 
 ### 1.3 Scenarios
 
@@ -48,95 +52,148 @@ The backend now pre-seeds the in-memory timeline to the scenario's configured hi
 
 ### 1.4 Captured Metrics
 
-- `derivationCount`: total status calculations executed during the run
-- `avg render latency`: mean time from state change to next painted frame
-- `max render latency`: worst observed render delay
-- `avg scrub latency`: mean time from slider input to next painted frame
-- `max scrub latency`: worst observed scrub delay
+Latency metrics:
 
-## 2. Results
+- `derivationCount`
+- `avg render latency`
+- `max render latency`
+- `avg scrub latency`
+- `max scrub latency`
+
+Memory metrics:
+
+- `peak heap`: highest `Runtime.getHeapUsage.usedSize` sample during the scenario
+- `workload-end heap`: heap usage after the history scrub phase
+- `post-GC heap`: heap usage immediately after `HeapProfiler.collectGarbage`
+- `peak growth`: peak heap minus baseline heap
+- `reclaimed by forced GC`: workload-end heap minus post-GC heap
+- `retained growth after GC`: post-GC heap minus baseline heap
+
+> [!NOTE]
+> These numbers come from a single local Chromium run per scenario/mode. They are useful for directional comparison, but not sufficient on their own to claim statistically stable wins under all environments.
+
+## 2. Latency Results
 
 | Scenario | Mode | Derivations | Avg Render Latency | Max Render Latency | Avg Scrub Latency | Max Scrub Latency |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Light | Pipe | 45 | 7.54 ms | 14.50 ms | 6.28 ms | 14.80 ms |
-| Light | Signal | 45 | 6.90 ms | 17.90 ms | 6.40 ms | 18.30 ms |
-| Heavy | Pipe | 1,575 | 9.10 ms | 29.70 ms | 14.93 ms | 30.30 ms |
-| Heavy | Signal | 1,575 | 8.53 ms | 26.00 ms | 13.90 ms | 27.00 ms |
-| Stress | Pipe | 5,650 | 7.70 ms | 63.20 ms | 26.65 ms | 65.20 ms |
-| Stress | Signal | 5,650 | 6.94 ms | 48.20 ms | 23.98 ms | 49.50 ms |
+| Light | Pipe | 45 | 6.09 ms | 12.50 ms | 5.55 ms | 12.50 ms |
+| Light | Signal | 45 | 6.17 ms | 10.60 ms | 3.97 ms | 7.40 ms |
+| Heavy | Pipe | 1,575 | 9.10 ms | 16.70 ms | 10.85 ms | 17.30 ms |
+| Heavy | Signal | 1,575 | 8.73 ms | 13.90 ms | 9.45 ms | 12.10 ms |
+| Stress | Pipe | 5,650 | 9.01 ms | 40.30 ms | 14.45 ms | 40.80 ms |
+| Stress | Signal | 5,650 | 9.62 ms | 45.10 ms | 14.75 ms | 45.90 ms |
 
-## 3. Analysis
+## 3. Memory And GC Results
 
-### 3.1 Derivation Count Did Not Decide The Outcome
+All heap values are shown in MiB.
 
-The derivation counts were identical within each scenario:
+| Scenario | Mode | Peak Heap | Peak Point | Workload-End Heap | Post-GC Heap | Peak Growth | Reclaimed By Forced GC | Retained Growth After GC |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| Light | Pipe | 10.10 | `scrub-5` | 10.10 | 5.90 | 1.79 | 4.20 | -2.40 |
+| Light | Signal | 10.08 | `scrub-5` | 10.08 | 5.86 | 1.75 | 4.23 | -2.47 |
+| Heavy | Pipe | 15.02 | `live-6s` | 8.52 | 7.22 | 6.46 | 1.31 | -1.35 |
+| Heavy | Signal | 15.10 | `live-10s` | 10.70 | 7.03 | 6.53 | 3.66 | -1.53 |
+| Stress | Pipe | 32.66 | `scrub-1` | 24.94 | 10.53 | 23.95 | 14.41 | 1.81 |
+| Stress | Signal | 30.81 | `scrub-1` | 26.00 | 8.90 | 22.06 | 17.10 | 0.14 |
+
+## 4. Analysis
+
+### 4.1 Derivation Count Still Does Not Decide The Outcome
+
+The derivation counts remained identical inside each scenario:
 
 - Light: `45` vs `45`
 - Heavy: `1,575` vs `1,575`
 - Stress: `5,650` vs `5,650`
 
-That matters because it shows the signal win did **not** come from eliminating derivations entirely. In this implementation, both routes still recompute the same number of rows. The difference shows up in **when** the work is paid for and how much latency spikes under load.
+That means the comparison is still about where the work lives and how it behaves under pressure, not about one route magically skipping computation.
 
-### 3.2 Light Load Is Effectively A Wash
+### 4.2 Light Load Is A Practical Tie
 
-At 5 symbols and 250 ms ticks, the signal route had a modest average render advantage:
+At 5 symbols and 250 ms ticks:
 
-- `8.5%` lower average render latency (`6.90 ms` vs `7.54 ms`)
+- average render latency was nearly identical (`6.09 ms` pipe vs `6.17 ms` signal)
+- signal had better scrub latency (`3.97 ms` avg vs `5.55 ms`)
+- signal had lower max render latency (`10.60 ms` vs `12.50 ms`)
+- heap and GC behavior were effectively identical
 
-But the pipe route had slightly better worst-case behavior in this smallest case:
+For small boards, the implementation choice should be based on clarity and reuse rather than micro-optimizing performance.
 
-- lower max render latency (`14.50 ms` vs `17.90 ms`)
-- lower max scrub latency (`14.80 ms` vs `18.30 ms`)
+### 4.3 Heavy Load Favors Computed Signals
 
-For small boards and low-frequency updates, either approach is acceptable.
+At 50 symbols and 100 ms ticks, the signal-based route was better across the latency columns:
 
-### 3.3 Heavy Load Favors Computed Signals
+- `4.0%` lower average render latency
+- `16.8%` lower max render latency
+- `12.9%` lower average scrub latency
+- `30.1%` lower max scrub latency
 
-At 50 symbols and 100 ms ticks, the signal route was better across every latency column:
+Memory behavior was mixed during the active run, but signal still ended with a slightly lower post-GC heap (`7.03 MiB` vs `7.22 MiB`) and reclaimed far more memory when GC was forced (`3.66 MiB` vs `1.31 MiB`).
 
-- `6.3%` lower average render latency
-- `12.5%` lower max render latency
-- `6.9%` lower average scrub latency
-- `10.9%` lower max scrub latency
+This is the clearest scenario in the current run: once the board reaches medium size, moving derivation out of the template pays off.
 
-This is the point where keeping derivation out of the template starts to pay off consistently.
+### 4.4 Stress Latency Is Close, But Stress Memory Favors Signals
 
-### 3.4 Stress Load Makes The Tradeoff Clear
+At 100 symbols and 50 ms ticks, this single instrumented run showed a slight latency edge for the pipe route:
 
-At 100 symbols, 50 ms ticks, and a 240-point history window, the difference widened:
+- average render latency: `9.01 ms` pipe vs `9.62 ms` signal
+- max render latency: `40.30 ms` pipe vs `45.10 ms` signal
+- average scrub latency: `14.45 ms` pipe vs `14.75 ms` signal
+- max scrub latency: `40.80 ms` pipe vs `45.90 ms` signal
 
-- `9.8%` lower average render latency for signals
-- `23.7%` lower max render latency for signals
-- `10.0%` lower average scrub latency for signals
-- `24.1%` lower max scrub latency for signals
+That is not a decisive enough gap to declare a stable winner, especially because this run also added periodic heap sampling and forced GC instrumentation.
 
-The important number here is the **peak** behavior. Pipe mode hit `63.20 ms` max render latency and `65.20 ms` max scrub latency, while signal mode stayed at `48.20 ms` and `49.50 ms`. Under aggressive update pressure, the computed-signal path is materially more stable.
+The memory side is more directional:
 
-## 4. When To Choose Each Approach
+- signal reached a lower peak heap (`30.81 MiB` vs `32.66 MiB`)
+- signal retained less heap after forced GC (`8.90 MiB` vs `10.53 MiB`)
+- signal reclaimed more memory during forced GC (`17.10 MiB` vs `14.41 MiB`)
+- signal ended much closer to baseline retained growth (`0.14 MiB` vs `1.81 MiB`)
+
+So the stress result is best interpreted as:
+
+- latency: near tie, with mild pipe advantage in this run
+- memory stability: signal advantage
+
+### 4.5 What The GC Probe Actually Tells Us
+
+The forced-GC numbers do **not** prove memory leaks or leak-freedom by themselves. What they do show is how much heap each route tends to leave resident after the same workload.
+
+In this run:
+
+- both implementations released a large amount of short-lived heap after GC
+- the signal route consistently ended at the same or lower post-GC heap
+- the stress scenario was the most meaningful differentiator, where signal retained much less heap above baseline
+
+For a real-time board that can sit open for long sessions, that is useful signal even when instantaneous latency is close.
+
+## 5. When To Choose Each Approach
 
 ### Choose Render-Time Pipes When
 
-- the derived value is simple, local, and used in one template
-- the list is small and update frequency is low
-- readability in the template matters more than squeezing out peak latency
-- the value is presentation-oriented rather than shared application state
-- you want the smallest possible abstraction for a prototype or admin view
+- the derived value is simple, local, and only used in one template
+- the board is small and update frequency is low
+- template readability is more important than squeezing out runtime behavior
+- you care more about minimal abstraction than shared derived state
+- you have measured the real board and found no latency or memory pressure problems
 
 ### Choose Computed Signals When
 
-- the same derived row state is reused across components or interactions
-- updates are frequent enough that peak frame latency matters
-- the board size can grow into dozens or hundreds of rows
-- you need better scrub behavior on history or playback views
-- you want derivation logic to live in testable, reusable state code rather than the template
+- derived row state is reused across views or interactions
+- you expect medium-to-large boards or sustained real-time updates
+- scrub behavior and predictable peak latency matter
+- you want derivation logic to live in testable state code instead of the template
+- long-lived sessions and heap churn matter enough to care about post-GC retention
 
-For **TickerTime specifically**, the signal-based store is the better default for the investigation board itself, because the app's core job is to compare behavior under real-time load rather than optimize for the shortest template code.
+For **TickerTime specifically**, the best default is still the signal-based route when the board is expected to operate as an investigation surface rather than a tiny demo widget. The heavy scenario favors signals on latency, and the stress scenario favors signals on memory retention even though the latency result is mixed in this one run.
 
-## 5. Conclusion
+## 6. Conclusion
 
-The updated `.NET 8` / `Angular 17` run reaches the same high-level conclusion as the earlier prototype, but with cleaner scenario fidelity:
+The updated benchmark adds browser memory allocation and forced-GC coverage instead of looking at latency alone.
 
-- use **pipes** for small, simple, low-pressure views
-- use **computed signals** for real-time boards where peak latency and scalability matter
+The practical takeaway is:
 
-In this codebase, computed signals should be the preferred implementation for any status board expected to handle medium or stress-level traffic.
+- use **pipes** when the UI is small, local, and simple
+- use **computed signals** when the board is expected to scale or stay open under load
+
+If I were choosing for the main TickerTime investigation board, I would still choose the **signal-based implementation**, but with one caveat: rerun the stress scenario multiple times in CI or a controlled lab environment before treating the latency difference as settled. The memory results are favorable to signals already; the stress latency question needs more repetitions than a single local pass.
