@@ -18,8 +18,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 11.0.x
-          dotnet-quality: preview
+          dotnet-version: 8.0.x
 
       - name: Restore backend
         run: dotnet restore src/backend/TickerTime.Api.Tests/TickerTime.Api.Tests.csproj
@@ -41,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
           cache-dependency-path: src/frontend/ticker-time-ui/package-lock.json
 

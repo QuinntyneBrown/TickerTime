@@ -7,8 +7,8 @@
   <a href="./LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
   </a>
-  <img src="https://img.shields.io/badge/.NET-11%20preview-512BD4" alt=".NET 11 preview">
-  <img src="https://img.shields.io/badge/Angular-21-DD0031" alt="Angular 21">
+  <img src="https://img.shields.io/badge/.NET-8-512BD4" alt=".NET 8">
+  <img src="https://img.shields.io/badge/Angular-17-DD0031" alt="Angular 17">
   <img src="https://img.shields.io/badge/SignalR-real--time-008272" alt="SignalR">
   <img src="https://img.shields.io/badge/Playwright-benchmarks-45BA4B" alt="Playwright">
   <img src="https://img.shields.io/badge/status-experimental-orange" alt="Project status">
@@ -31,9 +31,6 @@ TickerTime is an experimental real-time market board for comparing two Angular d
 
 The repository pairs an ASP.NET Core + SignalR backend with an Angular frontend, instrumentation for render timing, and a Playwright harness for repeatable browser-side performance experiments.
 
-> [!NOTE]
-> The checked-in code is the source of truth for runtime requirements. The app currently targets `.NET 11 preview` and `Angular 21`. Some design docs in `docs/` were written earlier and should be treated as architecture notes rather than exact version guarantees.
-
 ## Highlights
 
 - Deterministic live quote generation for repeatable comparisons.
@@ -47,8 +44,8 @@ The repository pairs an ASP.NET Core + SignalR backend with an Angular frontend,
 
 | Layer | Stack | Responsibility |
 | --- | --- | --- |
-| Backend | ASP.NET Core `net11.0` + SignalR | Quote generation, subscriptions, history, scenario configuration |
-| Frontend | Angular 21 + Signals | Pipe-based and signal-based investigation routes |
+| Backend | ASP.NET Core `net8.0` + SignalR | Quote generation, subscriptions, history, scenario configuration |
+| Frontend | Angular 17 + Signals | Pipe-based and signal-based investigation routes |
 | Test Harness | xUnit, Moq, Playwright | Backend verification and browser performance runs |
 
 ### API Surface
@@ -62,8 +59,8 @@ The repository pairs an ASP.NET Core + SignalR backend with an Angular frontend,
 
 ### Prerequisites
 
-- .NET SDK `11.0.100-preview.3` or newer preview in the .NET 11 line
-- Node.js `24+`
+- .NET SDK `8.0.x`
+- Node.js `20.x`
 - npm `10+`
 
 ### 1. Start the backend

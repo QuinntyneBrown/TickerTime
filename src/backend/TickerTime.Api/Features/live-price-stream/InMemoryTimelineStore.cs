@@ -6,7 +6,7 @@ namespace TickerTime.Api.Features.LivePriceStream
 {
     public class InMemoryTimelineStore
     {
-        private readonly ConcurrentDictionary<string, List<StockTick>> _timelines = new();
+        private ConcurrentDictionary<string, List<StockTick>> _timelines = new();
         private const int MaxHistory = 1000;
 
         public void Append(StockTick tick)
@@ -34,6 +34,19 @@ namespace TickerTime.Api.Features.LivePriceStream
                 }
             }
             return new List<StockTick>();
+        }
+
+        public void Reset(IEnumerable<StockTick> ticks)
+        {
+            var next = new ConcurrentDictionary<string, List<StockTick>>(
+                ticks.GroupBy(tick => tick.Symbol)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.OrderBy(tick => tick.Timestamp)
+                            .TakeLast(MaxHistory)
+                            .ToList()));
+
+            _timelines = next;
         }
     }
 }

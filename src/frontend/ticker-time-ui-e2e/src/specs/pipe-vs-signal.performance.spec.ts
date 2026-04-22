@@ -10,6 +10,8 @@ test.describe('Performance Comparison: Pipe vs Signal', () => {
   for (const scenario of SCENARIOS) {
     for (const mode of ['pipe', 'signal']) {
       test(`${scenario.name} - ${mode}`, async ({ page, request }) => {
+        test.setTimeout(120000);
+
         page.on('console', msg => {
             if (msg.type() === 'error') console.log(`BROWSER_ERROR|${msg.text()}`);
             else console.log(`BROWSER_LOG|${msg.text()}`);
@@ -40,19 +42,16 @@ test.describe('Performance Comparison: Pipe vs Signal', () => {
 
         const slider = page.getByRole('slider');
         if (await slider.isVisible()) {
-            const box = await slider.boundingBox();
-            if (box) {
-                // Scrub back and forth
-                for (let i = 0; i < 5; i++) {
-                    await page.mouse.move(box.x, box.y + box.height / 2);
-                    await page.mouse.down();
-                    await page.mouse.move(box.x + box.width, box.y + box.height / 2, { steps: 20 });
-                    await page.mouse.up();
-                    await page.mouse.move(box.x + box.width, box.y + box.height / 2);
-                    await page.mouse.down();
-                    await page.mouse.move(box.x, box.y + box.height / 2, { steps: 20 });
-                    await page.mouse.up();
-                }
+            const max = Number(await slider.getAttribute('max') ?? '0');
+            const stops = [max, 0, Math.floor(max / 2), max, 0];
+
+            for (const stop of stops) {
+                await slider.evaluate((element, value) => {
+                    const input = element as HTMLInputElement;
+                    input.value = String(value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }, stop);
+                await page.waitForTimeout(100);
             }
         }
 

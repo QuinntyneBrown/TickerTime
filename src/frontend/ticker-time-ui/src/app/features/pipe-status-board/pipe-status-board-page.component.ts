@@ -39,18 +39,19 @@ import { RenderProbeCoordinator } from '../performance-investigation/render-prob
             </thead>
             <tbody>
               @for (row of playbackStore.displayedRows(); track row.symbol) {
-                @let status = row | stockStatus;
-                <tr>
-                  <td>{{ row.symbol }}</td>
-                  <td>{{ row.displayedPrice | number:'1.2-2' }}</td>
-                  <td>
-                    <span class="badge" [className]="'badge ' + status.badgeTone">
-                      {{ status.direction === 'up' ? '▲' : status.direction === 'down' ? '▼' : '▬' }}
-                      {{ status.percentChange | percent:'1.2-2' }}
-                    </span>
-                  </td>
-                  <td>{{ row.displayedAtUtc | date:'HH:mm:ss.SSS' }}</td>
-                </tr>
+                <ng-container *ngIf="row | stockStatus as status">
+                  <tr>
+                    <td>{{ row.symbol }}</td>
+                    <td>{{ row.displayedPrice | number:'1.2-2' }}</td>
+                    <td>
+                      <span class="badge" [className]="'badge ' + status.badgeTone">
+                        {{ status.direction === 'up' ? '▲' : status.direction === 'down' ? '▼' : '▬' }}
+                        {{ status.percentChange | percent:'1.2-2' }}
+                      </span>
+                    </td>
+                    <td>{{ row.displayedAtUtc | date:'HH:mm:ss.SSS' }}</td>
+                  </tr>
+                </ng-container>
               }
             </tbody>
           </table>
